@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-function speakBooleanFlag() {
+function speakBooleanFlag(voice?: SpeechSynthesisVoice | null) {
   if (typeof window === "undefined") return;
 
   const synth = window.speechSynthesis;
@@ -15,14 +15,112 @@ function speakBooleanFlag() {
   utterance.rate = 1.1;
   utterance.pitch = 1.0;
 
+  if (voice) {
+    utterance.voice = voice;
+  }
+
   synth.speak(utterance);
+}
+
+function RubberChickens() {
+  const count = 14;
+  const chickens = Array.from({ length: count }, (_, i) => i);
+
+  return (
+    <>
+      <style jsx global>{`
+        @keyframes chicken-fall {
+          0% {
+            transform: translate3d(0, -120%, 0) rotate(-10deg);
+            opacity: 0;
+          }
+          15% {
+            opacity: 1;
+          }
+          100% {
+            transform: translate3d(0, 120vh, 0) rotate(18deg);
+            opacity: 0;
+          }
+        }
+
+        .rubber-chicken {
+          position: fixed;
+          top: -80px;
+          pointer-events: none;
+          z-index: 1;
+          filter: drop-shadow(0 10px 12px rgba(15, 23, 42, 0.35));
+          animation-name: chicken-fall;
+          animation-timing-function: cubic-bezier(0.4, 0.7, 0.2, 1);
+          animation-iteration-count: infinite;
+          will-change: transform, opacity;
+        }
+      `}</style>
+      {chickens.map((i) => {
+        const left = (i / count) * 100;
+        const delay = (i * 0.7) % 6;
+        const duration = 7 + (i % 4);
+        const scale = 0.7 + ((i % 3) * 0.15);
+
+        return (
+          <span
+            key={i}
+            className="rubber-chicken"
+            style={{
+              left: `${left}%`,
+              animationDuration: `${duration}s`,
+              animationDelay: `${delay}s`,
+              transformOrigin: "50% 0%",
+              fontSize: `${40 * scale}px`,
+            }}
+            aria-hidden="true"
+          >
+            🐔
+          </span>
+        );
+      })}
+    </>
+  );
 }
 
 export default function Home() {
   const [clicks, setClicks] = useState(0);
   const [isHover, setIsHover] = useState(false);
   const [isActive, setIsActive] = useState(false);
+  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
   const btnRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+
+    const synth = window.speechSynthesis;
+
+    const pickVoice = () => {
+      const voices = synth.getVoices();
+      if (!voices || voices.length === 0) return;
+
+      const lowerIncludes = (str: string, match: string) =>
+        str.toLowerCase().includes(match);
+
+      const australian =
+        voices.find(
+          (v) =>
+            lowerIncludes(v.lang || "", "en-au") ||
+            lowerIncludes(v.name || "", "australia"),
+        ) || null;
+
+      const englishFallback =
+        voices.find((v) =>
+          (v.lang || "").toLowerCase().startsWith("en-"),
+        ) || voices[0];
+
+      setVoice(australian || englishFallback || null);
+    };
+
+    pickVoice();
+    synth.addEventListener("voiceschanged", pickVoice);
+
+    return () => synth.removeEventListener("voiceschanged", pickVoice);
+  }, []);
 
   useEffect(() => {
     const el = btnRef.current;
@@ -41,7 +139,7 @@ export default function Home() {
 
   const handleClick = () => {
     setClicks((c) => c + 1);
-    speakBooleanFlag();
+    speakBooleanFlag(voice);
   };
 
   return (
@@ -52,14 +150,18 @@ export default function Home() {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        background: "radial-gradient(circle at top, #f5fff9 0, #e0ffe9 45%, #c7f5ff 100%)",
+        background:
+          "radial-gradient(circle at top, #f5fff9 0, #e0ffe9 45%, #c7f5ff 100%)",
         fontFamily:
-          "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif",
+          'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         color: "#022c22",
         padding: "32px 16px",
         boxSizing: "border-box",
+        position: "relative",
+        zIndex: 2,
       }}
     >
+      <RubberChickens />
       <h1
         style={{
           marginBottom: 32,
